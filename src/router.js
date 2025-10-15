@@ -6,7 +6,6 @@ const staticHandlers = require('./handlers/staticHandlers');
 const route = (request, response) => {
   const parsed = url.parse(request.url, true);
   const { pathname } = parsed;
-  const { method } = request;
 
   // Static routes
   if (pathname === '/') return staticHandlers.getIndex(request, response);
