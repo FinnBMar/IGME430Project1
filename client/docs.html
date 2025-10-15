@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Pokedex API - Docs</title>
+  <link rel="stylesheet" type="text/css" href="/style.css" />
+  <style>
+    body { max-width: 900px; margin: 24px auto; font-family: sans-serif; line-height:1.5; }
+    pre { background:#f4f4f4; padding:8px; overflow:auto; }
+    code { font-family: monospace; }
+    h1,h2,h3 { margin-top: 18px; }
+    table { border-collapse: collapse; width:100%; }
+    th, td { border:1px solid #ddd; padding:8px; text-align:left; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Pokedex API — Documentation</h1>
+
+    <section>
+      <h2>Overview</h2>
+      <p>The API serves Pokémon data (from <code>data/pokedex.json</code>). Responses are JSON by default. Include <code>Accept: application/json</code> header in requests (if omitted, JSON is returned).</p>
+    </section>
+
+    <section>
+      <h2>Endpoints</h2>
+
+      <h3>GET /api/pokemon</h3>
+      <p>Returns a paginated list of Pokémon. Supports the HEAD method (headers only) as well.</p>
+      <h4>Query Parameters</h4>
+      <table>
+        <thead><tr><th>Param</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td><code>name</code></td><td>string</td><td>optional</td><td>Case-insensitive substring or fuzzy match on Pokémon name (supports small typos like "Pikachuu").</td></tr>
+          <tr><td><code>type</code></td><td>string</td><td>optional</td><td>Filter by exact type name (e.g., <code>Fire</code>).</td></tr>
+          <tr><td><code>limit</code></td><td>integer</td><td>optional</td><td>Maximum number of results (default: 50).</td></tr>
+          <tr><td><code>offset</code></td><td>integer</td><td>optional</td><td>Skip the first <code>offset</code> results (default: 0).</td></tr>
+        </tbody>
+      </table>
+      <h4>Example</h4>
+      <pre><code>curl -i "http://localhost:3000/api/pokemon?name=char&limit=10"</code></pre>
+
+      <h3>GET /api/pokemon?id=NNN</h3>
+      <p>Returns a single Pokémon by numeric <code>id</code>. Supports HEAD (headers only).</p>
+      <h4>Example</h4>
+      <pre><code>curl -i "http://localhost:3000/api/pokemon?id=1"</code></pre>
+
+      <h3>GET /api/types</h3>
+      <p>Returns a list of all distinct Pokémon types.</p>
+      <h4>Example</h4>
+      <pre><code>curl -i "http://localhost:3000/api/types"</code></pre>
+
+      <h3>POST /api/pokemon/add</h3>
+      <p>Adds a new Pokémon to the in-memory dataset. Data is accepted as <code>application/json</code> or <code>application/x-www-form-urlencoded</code>.</p>
+      <h4>Body Parameters</h4>
+      <table>
+        <thead><tr><th>Param</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td><code>name</code></td><td>string</td><td>required</td><td>Name of the Pokémon.</td></tr>
+          <tr><td><code>type</code></td><td>array|string</td><td>required</td><td>Pokémon types (e.g., "Fire" or ["Fire","Flying"]).</td></tr>
+          <tr><td><code>height</code></td><td>string</td><td>optional</td><td>Height of the Pokémon.</td></tr>
+          <tr><td><code>weight</code></td><td>string</td><td>optional</td><td>Weight of the Pokémon.</td></tr>
+        </tbody>
+      </table>
+      <h4>Example</h4>
+      <pre><code>curl -X POST -H "Content-Type: application/json" -d '{"name":"Finnsaur","type":["Grass"],"height":"1.2 m","weight":"12.0 kg"}' http://localhost:3000/api/pokemon/add</code></pre>
+      <h4>Success Response (201)</h4>
+      <pre><code>{
+  "message": "Pokémon added successfully",
+  "newPokemon": {
+    "id": 152,
+    "name": "Finnsaur",
+    "type": ["Grass"]
+  }
+}</code></pre>
+
+      <h3>POST /api/pokemon/edit</h3>
+      <p>Edits an existing Pokémon's data. The Pokémon is found by <code>id</code> or <code>name</code>. Supports JSON and URL-encoded formats.</p>
+      <h4>Body Parameters</h4>
+      <table>
+        <thead><tr><th>Param</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td><code>id</code></td><td>integer</td><td>optional</td><td>ID of the Pokémon to edit (can use name instead).</td></tr>
+          <tr><td><code>name</code></td><td>string</td><td>optional</td><td>Name of the Pokémon to edit.</td></tr>
+          <tr><td><code>type</code></td><td>array|string</td><td>optional</td><td>Updated Pokémon type(s).</td></tr>
+          <tr><td><code>height</code></td><td>string</td><td>optional</td><td>Updated height.</td></tr>
+          <tr><td><code>weight</code></td><td>string</td><td>optional</td><td>Updated weight.</td></tr>
+        </tbody>
+      </table>
+      <h4>Example</h4>
+      <pre><code>curl -X POST -H "Content-Type: application/json" -d '{"name":"Pikachu","weight":"6.5 kg"}' http://localhost:3000/api/pokemon/edit</code></pre>
+
+      <h3>Unknown API endpoints</h3>
+      <p>Any unknown /api/* endpoint returns <code>404</code> with a JSON body:</p>
+      <pre><code>{
+  "message": "API endpoint not found",
+  "id": "notFound"
+}</code></pre>
+    </section>
+
+    <section>
+      <h2>Notes</h2>
+      <ul>
+        <li>All responses include <code>Content-Type</code> and <code>Content-Length</code> headers.</li>
+        <li>HEAD requests return the same status and headers as GET but do not include a response body.</li>
+        <li>Data is loaded into memory from <code>data/pokedex.json</code> at server startup. Any updates to data at runtime are in-memory only and will be lost on restart.</li>
+        <li>Added fuzzy search matching for minor typos in Pokémon names.</li>
+        <li>Code structure improved by splitting routes and handlers into separate files for readability.</li>
+        <li>Code comments and some logic generated or refactored using ChatGPT assistance.</li>
+      </ul>
+    </section>
+  </main>
+</body>
+</html>

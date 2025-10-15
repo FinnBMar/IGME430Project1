@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Pokedex Final - Client</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <main>
+    <h1>Pokedex — Final</h1>
+
+    <section>
+      <h2>Search Pokémon</h2>
+      <form id="queryForm">
+        <input id="name" name="name" placeholder="Name substring (or fuzzy search)" />
+        <input id="type" name="type" placeholder="Type (e.g., Fire)" style="margin-left:8px;" />
+        <input id="limit" name="limit" type="number" placeholder="Limit" value="50" style="width:80px;margin-left:8px;" />
+        <input id="offset" name="offset" type="number" placeholder="Offset" value="0" style="width:80px;margin-left:8px;" />
+        <button id="getBtn" type="submit">Get</button>
+      </form>
+      <div id="suggestion" style="margin-top:8px;color:#b33;"></div>
+    </section>
+
+    <section style="margin-top:12px;">
+      <h2>Add / Edit Pokémon</h2>
+      <form id="addForm">
+        <label>ID (leave blank to add new):</label>
+        <input id="pid" name="id" style="width:80px;" placeholder="25" />
+        <label style="margin-left:8px;">Name:</label>
+        <input id="pname" name="name" placeholder="Pikachu" />
+        <label style="margin-left:8px;">Num:</label>
+        <input id="pnum" name="num" placeholder="025" style="width:80px;" />
+        <label style="margin-left:8px;">Type (comma separated):</label>
+        <input id="ptype" name="type" placeholder="Electric" />
+        <button id="addBtn" type="submit" style="margin-left:8px;">Add / Update</button>
+      </form>
+    </section>
+
+    <section style="margin-top:12px;">
+      <button id="typesBtn">Get Types</button>
+    </section>
+
+    <section id="results" style="margin-top:16px;"></section>
+  </main>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const queryForm = document.getElementById('queryForm');
+      const addForm = document.getElementById('addForm');
+      const getTypesBtn = document.getElementById('typesBtn');
+      const results = document.getElementById('results');
+      const suggestionEl = document.getElementById('suggestion');
+
+      const renderPokemonList = (data) => {
+        const { count, results: list } = data;
+        if (!Array.isArray(list)) {
+          results.innerHTML = '<p>Unexpected response</p>';
+          return;
+        }
+        let html = `<p><strong>Count:</strong> ${count}</p>`;
+        if (list.length === 0) html += '<p>No results</p>';
+        else {
+          html += '<div style="display:flex;flex-wrap:wrap;gap:12px;">';
+          list.forEach((p) => {
+            html += `<div style="border:1px solid #ddd;padding:8px;width:200px;">
+              <h4>${p.name} (#${p.num})</h4>
+              <img src="${p.img}" alt="" style="width:96px;height:96px;" />
+              <p><strong>Types:</strong> ${Array.isArray(p.type)?p.type.join(', '):''}</p>
+            </div>`;
+          });
+          html += '</div>';
+        }
+        results.innerHTML = html;
+      };
+
+      queryForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        suggestionEl.textContent = '';
+        const fd = new FormData(queryForm);
+        const params = new URLSearchParams();
+        if (fd.get('name')) params.set('name', fd.get('name'));
+        if (fd.get('type')) params.set('type', fd.get('type'));
+        params.set('limit', fd.get('limit') || '50');
+        params.set('offset', fd.get('offset') || '0');
+
+        fetch(`/api/pokemon?${params.toString()}`, { method: 'GET', headers: { Accept: 'application/json' } })
+          .then((res) => res.text().then((text) => ({ res, text })))
+          .then(({ res, text }) => {
+            console.log('Raw response text:', text);
+            const obj = JSON.parse(text || '{}');
+            if (obj.suggestion) {
+              suggestionEl.textContent = obj.message || `Did you mean: ${obj.suggestion}?`;
+            } else {
+              suggestionEl.textContent = '';
+            }
+            if (res.status >= 400) {
+              results.innerHTML = `<p>Error: ${obj.message || 'Error'}</p>`;
+            } else {
+              renderPokemonList(obj);
+            }
+          })
+          .catch((err) => {
+            console.error(err);
+            results.innerHTML = '<p>Error fetching.</p>';
+          });
+      });
+
+      addForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const fd = new FormData(addForm);
+        const id = fd.get('id');
+        const name = fd.get('name');
+        const num = fd.get('num');
+        const typeRaw = fd.get('type') || '';
+        const types = typeRaw.split(',').map((t) => t.trim()).filter(Boolean);
+
+        const payload = { name, num, type: types };
+        // If updating path-style, POST to /api/pokemon/:id
+        const url = id ? `/api/pokemon/${id}` : '/api/pokemon';
+        const body = JSON.stringify(payload);
+
+        fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body })
+          .then((res) => {
+            if (res.status === 204) {
+              results.innerHTML = '<p>Update successful (204 No Content).</p>';
+              return;
+            }
+            return res.text().then((text) => {
+              console.log('Raw response text:', text);
+              const obj = JSON.parse(text || '{}');
+              results.innerHTML = `<p>Status: ${res.status}</p><pre>${JSON.stringify(obj, null, 2)}</pre>`;
+            });
+          })
+          .catch((err) => {
+            console.error(err);
+            results.innerHTML = '<p>Error adding/updating.</p>';
+          });
+      });
+
+      getTypesBtn.addEventListener('click', () => {
+        fetch('/api/types', { method: 'GET', headers: { Accept: 'application/json' } })
+          .then((res) => res.text().then((text) => ({ res, text })))
+          .then(({ res, text }) => {
+            console.log('Raw response text:', text);
+            const obj = JSON.parse(text || '{}');
+            if (res.status >= 400) {
+              results.innerHTML = `<p>Error: ${obj.message}</p>`;
+            } else {
+              results.innerHTML = `<p>Types (${obj.count}):</p><ul>${obj.types.map((t) => `<li>${t}</li>`).join('')}</ul>`;
+            }
+          })
+          .catch((err) => {
+            console.error(err);
+            results.innerHTML = '<p>Error fetching types.</p>';
+          });
+      });
+    });
+  </script>
+</body>
+</html>
